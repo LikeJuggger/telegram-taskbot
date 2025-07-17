@@ -13,10 +13,17 @@ from telegram.ext import (
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import nest_asyncio
 
+# Файл для збереження thread_id всіх незакритих задач
 THREAD_FILE = "threads.json"
-NAME, DESCRIPTION, LINKS, ASSIGNEE, DEADLINE = range(5)
-DONE_LINK = range(1)
 
+# —————————————————————————
+# СТАНИ ДЛЯ CONVERSATIONHANDLER
+# —————————————————————————
+NAME, DESCRIPTION, LINKS, ASSIGNEE, DEADLINE, DONE_LINK = range(6)
+
+# —————————————————————————
+# Завантаження / збереження списку тем
+# —————————————————————————
 def load_threads():
     if os.path.exists(THREAD_FILE):
         with open(THREAD_FILE, "r") as f:
@@ -27,11 +34,20 @@ def save_threads(data):
     with open(THREAD_FILE, "w") as f:
         json.dump(data, f)
 
-# --- Нова задача ---
+# —————————————————————————
+# КОМАНДА /start
+# —————————————————————————
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привіт! Напиши /newtask щоб створити нову задачу.")
+    await update.message.reply_text(
+        "Привіт! /newtask — створити задачу.\n"
+        "/done — закрити поточну (у темі)."
+    )
 
+# —————————————————————————
+# СТВОРЕННЯ НОВОЇ ЗАДАЧІ
+# —————————————————————————
 async def new_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     context.user_data['messages'] = [update.message.message_id]
     await update.message.reply_text("📌 Назва задачі?")
     return NAME
@@ -39,30 +55,34 @@ async def new_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['name'] = update.message.text
     context.user_data['messages'].append(update.message.message_id)
-    await update.message.reply_text("📝 Опиши суть задачі:")
+    await update.message.reply_text("📝 Опис задачі:")
     return DESCRIPTION
 
 async def get_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['description'] = update.message.text
     context.user_data['messages'].append(update.message.message_id)
-    await update.message.reply_text("📎 Додай посилання або напиши «немає»")
+    await update.message.reply_text("📎 Посилання або «немає»")
     return LINKS
 
 async def get_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['links'] = update.message.text
     context.user_data['messages'].append(update.message.message_id)
-    await update.message.reply_text("👤 Хто виконавець? @username:")
+    await update.message.reply_text("👤 Виконавець (@username):")
     return ASSIGNEE
 
 async def get_assignee(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['assignee'] = update.message.text
     context.user_data['messages'].append(update.message.message_id)
-    await update.message.reply_text("⏰ Який дедлайн?")
+    await update.message.reply_text("⏰ Дедлайн (будь-який формат):")
     return DEADLINE
 
 async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # збираємо дані
+    # Спочатку зберігаємо дедлайн
+    context.user_data['deadline'] = update.message.text
+    context.user_data['messages'].append(update.message.message_id)
+
     data = context.user_data
+    # Формуємо текст
     summary = (
         f"✅ *Нова задача!*\n\n"
         f"*Назва:* {data['name']}\n"
@@ -71,75 +91,109 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"*Виконавець:* {data['assignee']}\n"
         f"*Дедлайн:* {data['deadline']}"
     )
-    # створюємо гілку
-    topic = await context.bot.create_forum_topic(
-        chat_id=update.effective_chat.id,
-        name=f"🔴 {data['name']}"
-    )
-    # зберігаємо thread_id
-    threads = load_threads()
-    threads.append(topic.message_thread_id)
-    save_threads(threads)
-    # надсилаємо summary
+
+    # Спробуємо створити тему
+    topic = None
+    try:
+        topic = await context.bot.create_forum_topic(
+            chat_id=update.effective_chat.id,
+            name=f"🔴 {data['name']} — {data['assignee']}"
+        )
+        # збережемо її єдиний ID для нагадувань
+        threads = load_threads()
+        threads.append(topic.message_thread_id)
+        save_threads(threads)
+    except Exception as e:
+        print(f"[Topic Error] {e}")
+
+    # Куди відправляти summary?
+    if topic:
+        dest = dict(
+            chat_id=update.effective_chat.id,
+            message_thread_id=topic.message_thread_id
+        )
+    else:
+        dest = dict(chat_id=update.effective_chat.id)
+
     msg = await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        message_thread_id=topic.message_thread_id,
+        **dest,
         text=summary,
         parse_mode="Markdown"
     )
-    # закріплюємо
-    await context.bot.pin_chat_message(
-        chat_id=update.effective_chat.id,
-        message_id=msg.message_id
-    )
-    # чистимо тимчасові повідомлення
-    for mid in data.get("messages", []):
+
+    # А тепер закріпимо (якщо тема є)
+    if topic:
         try:
-            await context.bot.delete_message(update.effective_chat.id, mid)
+            await context.bot.pin_chat_message(
+                chat_id=update.effective_chat.id,
+                message_id=msg.message_id
+            )
+        except Exception as e:
+            print(f"[Pin Error] {e}")
+
+    # Видаляємо проміжні питання
+    for m in data.get("messages", []):
+        try:
+            await context.bot.delete_message(update.effective_chat.id, m)
         except:
             pass
+
     context.user_data.clear()
     return ConversationHandler.END
 
-async def cancel_new(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🚫 Створення таску скасовано.")
+# —————————————————————————
+# СКАСУВАННЯ
+# —————————————————————————
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🚫 Скасовано.")
+    context.user_data.clear()
     return ConversationHandler.END
 
-# --- Закриття таску ---
+# —————————————————————————
+# ЗАВЕРШЕННЯ ЗАДАЧІ (/done)
+# —————————————————————————
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔗 Додай посилання на результат:")
+    await update.message.reply_text("🔗 Кидай тут лінк на результат:")
     return DONE_LINK
 
 async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result_link = update.message.text
     thread_id = update.message.message_thread_id
     chat_id = update.effective_chat.id
-    result_link = update.message.text
 
-    # знаходимо тему
-    topics = await context.bot.get_forum_topic_list(chat_id=chat_id)
-    topic = next((t for t in topics if t.message_thread_id == thread_id), None)
-    if topic:
+    # Перейменовуємо тему на 🟢
+    try:
+        topic = await context.bot.get_forum_topic(
+            chat_id=chat_id,
+            message_thread_id=thread_id
+        )
         new_name = topic.name.replace("🔴", "🟢", 1)
         await context.bot.edit_forum_topic(
             chat_id=chat_id,
             message_thread_id=thread_id,
             name=new_name
         )
-    # прибираємо зі списку незакритих
-    threads = load_threads()
-    threads = [tid for tid in threads if tid != thread_id]
-    save_threads(threads)
+    except Exception as e:
+        print(f"[Edit Error] {e}")
 
-    await update.message.reply_text(f"✅ Задачу завершено!\nПосилання: {result_link}")
+    # Видалимо з наших "threads.json"
+    try:
+        threads = load_threads()
+        threads = [tid for tid in threads if tid != thread_id]
+        save_threads(threads)
+    except Exception as e:
+        print(f"[Remove Error] {e}")
+
+    await update.message.reply_text(
+        f"✅ Задача завершена!\nПосилання: {result_link}"
+    )
     return ConversationHandler.END
 
-async def cancel_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🚫 Закриття таску скасовано.")
-    return ConversationHandler.END
-
-# --- Нагадування ---
+# —————————————————————————
+# НАГАДУВАННЯ
+# —————————————————————————
 async def send_reminders(bot):
-    chat_id = -1002737596438  # твій chat_id
+    chat_id = -1002737596438  # → заміни на свій Chat ID (Debug: print його через /start)
     threads = load_threads()
     for tid in threads:
         try:
@@ -151,44 +205,40 @@ async def send_reminders(bot):
         except Exception as e:
             print(f"[Reminder Error] {e}")
 
-# --- Головна ---
+# —————————————————————————
+# MAIN
+# —————————————————————————
 async def main():
+    nest_asyncio.apply()
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # handler для newtask
-    conv_new = ConversationHandler(
-        entry_points=[CommandHandler("newtask", new_task)],
+    conv = ConversationHandler(
+        entry_points=[
+            CommandHandler("newtask", new_task),
+            CommandHandler("done", done)
+        ],
         states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-            DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_description)],
-            LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_links)],
-            ASSIGNEE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_assignee)],
-            DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
+            NAME:       [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+            DESCRIPTION:[MessageHandler(filters.TEXT & ~filters.COMMAND, get_description)],
+            LINKS:      [MessageHandler(filters.TEXT & ~filters.COMMAND, get_links)],
+            ASSIGNEE:   [MessageHandler(filters.TEXT & ~filters.COMMAND, get_assignee)],
+            DEADLINE:   [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
+            DONE_LINK:  [MessageHandler(filters.TEXT & ~filters.COMMAND, done_link)],
         },
-        fallbacks=[CommandHandler("cancel", cancel_new)],
+        fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=False
     )
-    # handler для done
-    conv_done = ConversationHandler(
-        entry_points=[CommandHandler("done", done)],
-        states={
-            DONE_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, done_link)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel_done)],
-    )
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv_new)
-    app.add_handler(conv_done)
+    app.add_handler(conv)
 
-    # планувальник
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, 'cron', hour=6, minute=0, args=[app.bot])
+    # Нагадування щоранку о 06:00 (UTC+3 → локально 09:00)
+    scheduler.add_job(send_reminders, trigger='cron', hour=6, minute=0, args=[app.bot])
     scheduler.start()
 
     print("🤖 Бот запущено!")
     await app.run_polling()
 
 if __name__ == '__main__':
-    nest_asyncio.apply()
     asyncio.run(main())
