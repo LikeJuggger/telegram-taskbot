@@ -114,17 +114,13 @@ async def send_reminders(bot):
     except Exception as e:
         print(f"[Reminder Error] {e}")
 
-# 🚀 Запуск
-if __name__ == '__main__':
+import asyncio  # Додай на початок файлу, якщо ще не додано
+
+async def main():
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # Планувальник
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=20, args=[app.bot])
-    scheduler.start()
-
-    # Хендлери
+    # 🧱 Хендлери
     conv = ConversationHandler(
         entry_points=[CommandHandler("newtask", new_task)],
         states={
@@ -137,9 +133,16 @@ if __name__ == '__main__':
         fallbacks=[CommandHandler("cancel", cancel)],
         allow_reentry=False
     )
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
 
+    # ⏰ Планувальник
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=20, args=[app.bot])
+    scheduler.start()
+
     print("🤖 Бот запущено!")
-    app.run_polling()
+    await app.run_polling()
+
+if __name__ == '__main__':
+    asyncio.run(main())
