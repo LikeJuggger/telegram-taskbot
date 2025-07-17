@@ -143,6 +143,6 @@ async def main():
     await app.run_polling()
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.create_task(main())
-    loop.run_forever()
+    import nest_asyncio
+    nest_asyncio.apply()
+    asyncio.run(main())
