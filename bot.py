@@ -1,7 +1,5 @@
 from telegram import Update
 from telegram.ext import (
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from datetime import time
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
@@ -9,6 +7,8 @@ from datetime import time
     ContextTypes,
     filters,
 )
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import time
 import os
 
 # Стадії
