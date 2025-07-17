@@ -146,6 +146,6 @@ async def send_reminders(bot):
 scheduler = AsyncIOScheduler()
 scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=30, args=[app.bot])
 scheduler.start()
-    
-    print("🤖 Бот запущено!")
-    app.run_polling()
+
+print("🤖 Бот запущено!")
+app.run_polling()
