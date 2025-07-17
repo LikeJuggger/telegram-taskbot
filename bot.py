@@ -135,9 +135,13 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
     try:
-        topic = await context.bot.get_forum_topic(chat_id=chat_id, message_thread_id=thread_id)
-        new_name = topic.name.replace("🔴", "🟢", 1)
-        await context.bot.edit_forum_topic(chat_id=chat_id, message_thread_id=thread_id, name=new_name)
+        topics = await context.bot.get_forum_topic_list(chat_id=chat_id)
+        topic = next((t for t in topics if t.message_thread_id == thread_id), None)
+        if topic:
+            new_name = topic.name.replace("🔴", "🟢", 1)
+            await context.bot.edit_forum_topic(chat_id=chat_id, message_thread_id=thread_id, name=new_name)
+        else:
+            print(f"[Error] Тему з id {thread_id} не знайдено")
     except Exception as e:
         print(f"[Edit Error] {e}")
 
@@ -150,6 +154,7 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ Задачу завершено!\nПосилання: {result_link}")
     return ConversationHandler.END
+
 
 # ----------------------------------------
 # 🔔 Нагадування
