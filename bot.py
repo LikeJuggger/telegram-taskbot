@@ -119,7 +119,35 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚫 Задачу скасовано.")
     return ConversationHandler.END
+    
+# ✅ Завершення задачі
+DONE_LINK = range(1)
 
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🔗 Додай посилання на результат:")
+    return DONE_LINK
+
+async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result_link = update.message.text
+    thread_id = update.message.message_thread_id
+    chat_id = update.effective_chat.id
+
+    try:
+        topic = await context.bot.get_forum_topic(chat_id=chat_id, message_thread_id=thread_id)
+        new_name = topic.name.replace("🔴", "🟢", 1)
+        await context.bot.edit_forum_topic(chat_id=chat_id, message_thread_id=thread_id, name=new_name)
+    except Exception as e:
+        print(f"[Edit Error] {e}")
+
+    try:
+        threads = load_threads()
+        threads = [tid for tid in threads if tid != thread_id]
+        save_threads(threads)
+    except Exception as e:
+        print(f"[Remove Error] {e}")
+
+    await update.message.reply_text(f"✅ Задачу завершено!\nПосилання: {result_link}")
+    return ConversationHandler.END
 # ----------------------------------------
 # 🔔 Нагадування
 # ----------------------------------------
@@ -146,18 +174,19 @@ async def main():
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 
-    conv = ConversationHandler(
-        entry_points=[CommandHandler("newtask", new_task)],
-        states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-            DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_description)],
-            LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_links)],
-            ASSIGNEE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_assignee)],
-            DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-        allow_reentry=False
-    )
+ conv = ConversationHandler(
+    entry_points=[CommandHandler("newtask", new_task), CommandHandler("done", done)],
+    states={
+        NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+        DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_description)],
+        LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_links)],
+        ASSIGNEE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_assignee)],
+        DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
+        DONE_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, done_link)],  # <-- Додати це
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+    allow_reentry=False
+)
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
