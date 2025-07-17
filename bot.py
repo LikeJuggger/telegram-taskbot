@@ -138,7 +138,7 @@ async def main():
 
     # ⏰ Планувальник
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=20, args=[app.bot])
+    scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=40, args=[app.bot])
     scheduler.start()
 
     print("🤖 Бот запущено!")
