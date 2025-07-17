@@ -119,7 +119,7 @@ if __name__ == '__main__':
             DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
-        allow_reentry=False
+        allow_reentry=True
     )
 
     app.add_handler(CommandHandler("start", start))
