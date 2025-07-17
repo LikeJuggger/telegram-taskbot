@@ -101,7 +101,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Нагадування
 async def send_reminders(bot):
-    chat_id = -1001234567890  # 🔁 Заміни на ID твоєї групи!
+    chat_id = -1002737596438  # 🔁 Заміни на ID твоєї групи!
     try:
         topics = await bot.get_forum_topic_list(chat_id=chat_id)
         for topic in topics:
@@ -136,7 +136,7 @@ async def main():
     app.add_handler(conv)
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=50, args=[app.bot])
+    scheduler.add_job(send_reminders, trigger='cron', hour=00, minute=12, args=[app.bot])
     scheduler.start()
 
     print("🤖 Бот запущено!")
