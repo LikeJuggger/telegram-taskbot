@@ -79,19 +79,22 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-    # Закріплення
+# Закріплення
     await context.bot.pin_chat_message(
         chat_id=update.effective_chat.id,
-        message_id=msg.message_id,
-        message_thread_id=topic.message_thread_id
+        message_id=msg.message_id
     )
 
-    # Видалення старих повідомлень з головного чату
+    # Видалення тимчасових даних
     for msg_id in data.get("messages", []):
         try:
             await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_id)
         except:
-            pass  # Якщо бот не встиг або повідомлення вже зникло
+            pass
+
+    # ОЧИСТКА — Ось ці два рядки додай перед поверненням
+    context.user_data.clear()
+    context.conversation_data.clear()
 
     return ConversationHandler.END
 
