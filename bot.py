@@ -102,15 +102,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Нагадування
 async def send_reminders(bot):
     chat_id = -1002737596438
-    print("[DEBUG] 🔁 Reminder triggered")  # ✅ Важливо
+    print("[DEBUG] 🔁 Reminder triggered")
 
     try:
         topics = await bot.get_forum_topic_list(chat_id=chat_id)
-        print(f"[DEBUG] Теми знайдено: {[t.name for t in topics]}")  # ✅ Дивимось, які теми взагалі бачить
+        print(f"[DEBUG] Теми знайдено: {[t.name for t in topics]}")
 
         for topic in topics:
+            print(f"[DEBUG] ▶️ Перевіряємо тему: {topic.name}")
             if "🔴" in topic.name:
-                print(f"[DEBUG] Відправляємо нагадування в: {topic.name}")  # ✅ Щоб бачити, кому шле
+                print(f"[DEBUG] ✅ Відправляємо нагадування в: {topic.name}")
                 await bot.send_message(
                     chat_id=chat_id,
                     message_thread_id=topic.message_thread_id,
@@ -119,7 +120,7 @@ async def send_reminders(bot):
 
     except Exception as e:
         print(f"[Reminder Error] {e}")
-
+        
 # Основна функція
 async def main():
     TOKEN = os.getenv("BOT_TOKEN")
