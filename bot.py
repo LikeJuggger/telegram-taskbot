@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 from telegram import Update
 from telegram.ext import (
@@ -12,17 +13,33 @@ from telegram.ext import (
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import nest_asyncio
 
-# Глобальний список для збереження тем
-created_threads = []
+# Файл для збереження тем
+THREAD_FILE = "threads.json"
 
-# Стадії для ConversationHandler
+# Стадії
 NAME, DESCRIPTION, LINKS, ASSIGNEE, DEADLINE = range(5)
 
-# Команда /start
+# ----------------------------------------
+# 🔧 Зберігання / Завантаження тем
+# ----------------------------------------
+
+def load_threads():
+    if os.path.exists(THREAD_FILE):
+        with open(THREAD_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_threads(data):
+    with open(THREAD_FILE, "w") as f:
+        json.dump(data, f)
+
+# ----------------------------------------
+# 🤖 Бот-команди
+# ----------------------------------------
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привіт! Напиши /newtask щоб створити нову задачу.")
 
-# Початок задачі
 async def new_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['messages'] = [update.message.message_id]
     await update.message.reply_text("📌 Назва задачі?")
@@ -52,7 +69,6 @@ async def get_assignee(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏰ Який дедлайн?")
     return DEADLINE
 
-# Завершення задачі
 async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['deadline'] = update.message.text
     context.user_data['messages'].append(update.message.message_id)
@@ -73,7 +89,10 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name=topic_title
     )
 
-    created_threads.append(topic.message_thread_id)
+    # Зберігаємо thread_id
+    threads = load_threads()
+    threads.append(topic.message_thread_id)
+    save_threads(threads)
 
     msg = await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -97,17 +116,19 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.conversation_data.clear()
     return ConversationHandler.END
 
-# Скасування задачі
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚫 Задачу скасовано.")
     return ConversationHandler.END
 
-# Нагадування
+# ----------------------------------------
+# 🔔 Нагадування
+# ----------------------------------------
+
 async def send_reminders(bot):
-    chat_id = -1002737596438  # 👈 Твій ID групи
-    if not created_threads:
-        return
-    for thread_id in created_threads:
+    chat_id = -1002737596438  # ← замінити на свій
+    threads = load_threads()
+
+    for thread_id in threads:
         try:
             await bot.send_message(
                 chat_id=chat_id,
@@ -117,7 +138,10 @@ async def send_reminders(bot):
         except Exception as e:
             print(f"[Reminder Error] {e}")
 
-# Основна функція
+# ----------------------------------------
+# 🔁 Основна функція
+# ----------------------------------------
+
 async def main():
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
@@ -139,7 +163,7 @@ async def main():
     app.add_handler(conv)
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, trigger='cron', hour=21, minute=52, args=[app.bot])
+    scheduler.add_job(send_reminders, trigger='cron', hour=21, minute=30, args=[app.bot])
     scheduler.start()
 
     print("🤖 Бот запущено!")
