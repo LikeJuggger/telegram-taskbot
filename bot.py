@@ -56,7 +56,6 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['messages'].append(update.message.message_id)
 
     data = context.user_data
-
     summary = (
         f"✅ *Нова задача!*\n\n"
         f"*Назва:* {data['name']}\n"
@@ -66,16 +65,12 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"*Дедлайн:* {data['deadline']}"
     )
 
-    topic_title = f"{data['name']} – {data['assignee']}"
-
-   # 🧵 Створення гілки з емоджі в назві
-    topic_title = f"{data['name']}"
+    topic_title = f"🔴 {data['name']} – {data['assignee']}"
     topic = await context.bot.create_forum_topic(
         chat_id=update.effective_chat.id,
-        name=f"🔴 {topic_title}"
+        name=topic_title
     )
 
-    # Відправляємо самарі
     msg = await context.bot.send_message(
         chat_id=update.effective_chat.id,
         message_thread_id=topic.message_thread_id,
@@ -83,23 +78,20 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# Закріплення
     await context.bot.pin_chat_message(
         chat_id=update.effective_chat.id,
         message_id=msg.message_id
     )
 
-    # Видалення тимчасових даних
+    # Очистка тимчасових даних
     for msg_id in data.get("messages", []):
         try:
             await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_id)
         except:
             pass
 
-    # ОЧИСТКА — Ось ці два рядки додай перед поверненням
     context.user_data.clear()
     context.conversation_data.clear()
-
     return ConversationHandler.END
 
 # Скасування
@@ -107,11 +99,32 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚫 Задачу скасовано.")
     return ConversationHandler.END
 
-# Запуск
+# 🕒 Функція нагадування
+async def send_reminders(bot):
+    chat_id = -1001234567890  # Замінити на ID твоєї групи
+    try:
+        topics = await bot.get_forum_topic_list(chat_id=chat_id)
+        for topic in topics:
+            if "🔴" in topic.name:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    message_thread_id=topic.message_thread_id,
+                    text="🔔 Нагадування: задача ще не закрита!"
+                )
+    except Exception as e:
+        print(f"[Reminder Error] {e}")
+
+# 🚀 Запуск
 if __name__ == '__main__':
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 
+    # Планувальник
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=20, args=[app.bot])
+    scheduler.start()
+
+    # Хендлери
     conv = ConversationHandler(
         entry_points=[CommandHandler("newtask", new_task)],
         states={
@@ -122,30 +135,11 @@ if __name__ == '__main__':
             DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
-        allow_reentry=True
+        allow_reentry=False
     )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
-# 🕓 Функція нагадування
-async def send_reminders(bot):
-    chat_id = -1001234567890  # Заміни на свій chat_id групи!
-    try:
-        topics = await bot.get_forum_topic_list(chat_id=chat_id)
-        for topic in topics:
-            if "🔴" in topic.name:
-                await bot.send_message(
-                    chat_id=chat_id,
-                    message_thread_id=topic.message_thread_id,
-                    text="⏰ Нагадування: задача ще не закрита!"
-                )
-    except Exception as e:
-        print(f"[Reminder Error] {e}")
 
-# 🗓️ Планувальник
-scheduler = AsyncIOScheduler()
-scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=30, args=[app.bot])
-scheduler.start()
-
-print("🤖 Бот запущено!")
-app.run_polling()
+    print("🤖 Бот запущено!")
+    app.run_polling()
