@@ -1,6 +1,5 @@
 import os
 import asyncio
-from datetime import time
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,13 +10,13 @@ from telegram.ext import (
     filters,
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import nest_asyncio
 
 # Стадії для ConversationHandler
 NAME, DESCRIPTION, LINKS, ASSIGNEE, DEADLINE = range(5)
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"[DEBUG] Chat ID: {update.effective_chat.id}")
     await update.message.reply_text("Привіт! Напиши /newtask щоб створити нову задачу.")
 
 # Початок задачі
@@ -50,7 +49,7 @@ async def get_assignee(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏰ Який дедлайн?")
     return DEADLINE
 
-# Завершення
+# Завершення задачі
 async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['deadline'] = update.message.text
     context.user_data['messages'].append(update.message.message_id)
@@ -83,7 +82,6 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_id=msg.message_id
     )
 
-    # Видалення тимчасових повідомлень
     for msg_id in data.get("messages", []):
         try:
             await context.bot.delete_message(update.effective_chat.id, msg_id)
@@ -101,27 +99,22 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Нагадування
 async def send_reminders(bot):
-    chat_id = -1002737596438
-    print("[DEBUG] 🔁 Reminder triggered")
-
+    chat_id = -1002737596438  # ← заміни на свій ID, якщо ще ні
     try:
-        topics = await bot.get_forum_topic_list(chat_id=chat_id)
-        print(f"[DEBUG] Теми знайдено: {[t.name for t in topics]}")
+        chat = await bot.get_chat(chat_id)
+        topics = chat.forum_topics
 
         for topic in topics:
-            print(f"[DEBUG] ▶️ Перевіряємо тему: {topic.name}")
             if "🔴" in topic.name:
-                print(f"[DEBUG] ✅ Відправляємо нагадування в: {topic.name}")
                 await bot.send_message(
                     chat_id=chat_id,
                     message_thread_id=topic.message_thread_id,
                     text="🔔 Нагадування: задача ще не закрита!"
                 )
-
     except Exception as e:
         print(f"[Reminder Error] {e}")
-        
-# Основна функція
+
+# Головна функція
 async def main():
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
@@ -142,18 +135,15 @@ async def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
 
+    # Планувальник
     scheduler = AsyncIOScheduler()
     scheduler.add_job(send_reminders, trigger='cron', hour=21, minute=30, args=[app.bot])
     scheduler.start()
 
-   # ✅ Тимчасовий ручний запуск нагадування (можна потім прибрати)
-    await send_reminders(app.bot)
-
     print("🤖 Бот запущено!")
     await app.run_polling()
 
-
+# Запуск
 if __name__ == '__main__':
-    import nest_asyncio
     nest_asyncio.apply()
     asyncio.run(main())
