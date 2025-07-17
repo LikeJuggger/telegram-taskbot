@@ -1,8 +1,14 @@
+import os
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ConversationHandler, ContextTypes, filters
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler,
+    MessageHandler, ConversationHandler, ContextTypes, filters
+)
 
+# Етапи збору інформації
 NAME, DESCRIPTION, LINKS, ASSIGNEE, DEADLINE = range(5)
 
+# Команди
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привіт! Напиши /newtask щоб створити нову задачу.")
 
@@ -50,27 +56,25 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚫 Задачу скасовано.")
     return ConversationHandler.END
 
-if __name__ == '__main__':
-    import os
-    from telegram.ext import ApplicationBuilder
+# ✅ Код стартує завжди (без if __name__ == '__main__')
+TOKEN = os.getenv("BOT_TOKEN")
+app = ApplicationBuilder().token(TOKEN).build()
 
-    TOKEN = os.getenv("BOT_TOKEN")
-    app = ApplicationBuilder().token(TOKEN).build()
+# Хендлери
+conv = ConversationHandler(
+    entry_points=[CommandHandler("newtask", new_task)],
+    states={
+        NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+        DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_description)],
+        LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_links)],
+        ASSIGNEE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_assignee)],
+        DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+)
 
-    conv = ConversationHandler(
-        entry_points=[CommandHandler("newtask", new_task)],
-        states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-            DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_description)],
-            LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_links)],
-            ASSIGNEE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_assignee)],
-            DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
+app.add_handler(CommandHandler("start", start))
+app.add_handler(conv)
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv)
-
-    print("🤖 Бот запущено!")
-    app.run_polling()
+print("🤖 Бот запущено!")
+app.run_polling()
