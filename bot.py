@@ -65,10 +65,11 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     topic_title = f"{data['name']} – {data['assignee']}"
 
-    # Створюємо гілку
+   # 🧵 Створення гілки з емоджі в назві
+    topic_title = f"{data['name']}"
     topic = await context.bot.create_forum_topic(
         chat_id=update.effective_chat.id,
-        name=topic_title
+        name=f"🔴 {topic_title}"
     )
 
     # Відправляємо самарі
