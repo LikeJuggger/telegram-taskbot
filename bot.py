@@ -146,8 +146,12 @@ async def main():
     scheduler.add_job(send_reminders, trigger='cron', hour=21, minute=30, args=[app.bot])
     scheduler.start()
 
+   # ✅ Тимчасовий ручний запуск нагадування (можна потім прибрати)
+    await send_reminders(app.bot)
+
     print("🤖 Бот запущено!")
     await app.run_polling()
+
 
 if __name__ == '__main__':
     import nest_asyncio
