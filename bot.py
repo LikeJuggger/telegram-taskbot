@@ -101,16 +101,22 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Нагадування
 async def send_reminders(bot):
-    chat_id = -1002737596438  # 🔁 Заміни на ID твоєї групи!
+    chat_id = -1002737596438
+    print("[DEBUG] 🔁 Reminder triggered")  # ✅ Важливо
+
     try:
         topics = await bot.get_forum_topic_list(chat_id=chat_id)
+        print(f"[DEBUG] Теми знайдено: {[t.name for t in topics]}")  # ✅ Дивимось, які теми взагалі бачить
+
         for topic in topics:
             if "🔴" in topic.name:
+                print(f"[DEBUG] Відправляємо нагадування в: {topic.name}")  # ✅ Щоб бачити, кому шле
                 await bot.send_message(
                     chat_id=chat_id,
                     message_thread_id=topic.message_thread_id,
                     text="🔔 Нагадування: задача ще не закрита!"
                 )
+
     except Exception as e:
         print(f"[Reminder Error] {e}")
 
@@ -136,7 +142,7 @@ async def main():
     app.add_handler(conv)
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, trigger='cron', hour=21, minute=17, args=[app.bot])
+    scheduler.add_job(send_reminders, trigger='cron', hour=21, minute=24, args=[app.bot])
     scheduler.start()
 
     print("🤖 Бот запущено!")
