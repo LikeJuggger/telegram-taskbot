@@ -18,6 +18,7 @@ THREAD_FILE = "threads.json"
 
 # Стадії
 NAME, DESCRIPTION, LINKS, ASSIGNEE, DEADLINE = range(5)
+DONE_LINK = range(1)
 
 # ----------------------------------------
 # 🔧 Зберігання / Завантаження тем
@@ -119,9 +120,10 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚫 Задачу скасовано.")
     return ConversationHandler.END
-    
+
+# ----------------------------------------
 # ✅ Завершення задачі
-DONE_LINK = range(1)
+# ----------------------------------------
 
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔗 Додай посилання на результат:")
@@ -148,16 +150,20 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"✅ Задачу завершено!\nПосилання: {result_link}")
     return ConversationHandler.END
+
 # ----------------------------------------
 # 🔔 Нагадування
 # ----------------------------------------
 
 async def send_reminders(bot):
-    chat_id = -1002737596438  # ← замінити на свій
+    chat_id = -1002737596438  # ← замінити на свій ID групи
+    print("[DEBUG] 🔁 Reminder triggered")
     threads = load_threads()
+    print(f"[DEBUG] Збережені гілки: {threads}")
 
     for thread_id in threads:
         try:
+            print(f"[DEBUG] Відправка в гілку: {thread_id}")
             await bot.send_message(
                 chat_id=chat_id,
                 message_thread_id=thread_id,
@@ -174,31 +180,30 @@ async def main():
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 
- conv = ConversationHandler(
-    entry_points=[CommandHandler("newtask", new_task), CommandHandler("done", done)],
-    states={
-        NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-        DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_description)],
-        LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_links)],
-        ASSIGNEE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_assignee)],
-        DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
-        DONE_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, done_link)],  # <-- Додати це
-    },
-    fallbacks=[CommandHandler("cancel", cancel)],
-    allow_reentry=False
-)
+    conv = ConversationHandler(
+        entry_points=[CommandHandler("newtask", new_task), CommandHandler("done", done)],
+        states={
+            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+            DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_description)],
+            LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_links)],
+            ASSIGNEE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_assignee)],
+            DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_deadline)],
+            DONE_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, done_link)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=False
+    )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, trigger='cron', hour=22, minute=00, args=[app.bot])
+    scheduler.add_job(send_reminders, trigger='cron', hour=22, minute=0, args=[app.bot])
     scheduler.start()
 
     print("🤖 Бот запущено!")
     await app.run_polling()
 
-# Запуск
 if __name__ == '__main__':
     nest_asyncio.apply()
     asyncio.run(main())
