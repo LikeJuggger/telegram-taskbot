@@ -12,6 +12,9 @@ from telegram.ext import (
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import nest_asyncio
 
+# Глобальний список для збереження тем
+created_threads = []
+
 # Стадії для ConversationHandler
 NAME, DESCRIPTION, LINKS, ASSIGNEE, DEADLINE = range(5)
 
@@ -70,6 +73,8 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name=topic_title
     )
 
+    created_threads.append(topic.message_thread_id)
+
     msg = await context.bot.send_message(
         chat_id=update.effective_chat.id,
         message_thread_id=topic.message_thread_id,
@@ -99,22 +104,20 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Нагадування
 async def send_reminders(bot):
-    chat_id = -1002737596438  # ← заміни на свій ID, якщо ще ні
-    try:
-        chat = await bot.get_chat(chat_id)
-        topics = chat.forum_topics
+    chat_id = -1002737596438  # 👈 Твій ID групи
+    if not created_threads:
+        return
+    for thread_id in created_threads:
+        try:
+            await bot.send_message(
+                chat_id=chat_id,
+                message_thread_id=thread_id,
+                text="🔔 Нагадування: задача ще не закрита!"
+            )
+        except Exception as e:
+            print(f"[Reminder Error] {e}")
 
-        for topic in topics:
-            if "🔴" in topic.name:
-                await bot.send_message(
-                    chat_id=chat_id,
-                    message_thread_id=topic.message_thread_id,
-                    text="🔔 Нагадування: задача ще не закрита!"
-                )
-    except Exception as e:
-        print(f"[Reminder Error] {e}")
-
-# Головна функція
+# Основна функція
 async def main():
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
@@ -135,9 +138,8 @@ async def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
 
-    # Планувальник
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, trigger='cron', hour=21, minute=45, args=[app.bot])
+    scheduler.add_job(send_reminders, trigger='cron', hour=21, minute=30, args=[app.bot])
     scheduler.start()
 
     print("🤖 Бот запущено!")
