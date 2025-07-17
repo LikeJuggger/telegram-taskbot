@@ -1,5 +1,7 @@
 from telegram import Update
 from telegram.ext import (
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import time
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
@@ -14,6 +16,7 @@ NAME, DESCRIPTION, LINKS, ASSIGNEE, DEADLINE = range(5)
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"[DEBUG] Chat ID: {update.effective_chat.id}")
     await update.message.reply_text("Привіт! Напиши /newtask щоб створити нову задачу.")
 
 # Початок
@@ -124,6 +127,25 @@ if __name__ == '__main__':
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
+# 🕓 Функція нагадування
+async def send_reminders(bot):
+    chat_id = -1001234567890  # Заміни на свій chat_id групи!
+    try:
+        topics = await bot.get_forum_topic_list(chat_id=chat_id)
+        for topic in topics:
+            if "🔴" in topic.name:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    message_thread_id=topic.message_thread_id,
+                    text="⏰ Нагадування: задача ще не закрита!"
+                )
+    except Exception as e:
+        print(f"[Reminder Error] {e}")
 
+# 🗓️ Планувальник
+scheduler = AsyncIOScheduler()
+scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=20, args=[app.bot])
+scheduler.start()
+    
     print("🤖 Бот запущено!")
     app.run_polling()
