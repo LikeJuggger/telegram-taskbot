@@ -120,7 +120,7 @@ async def main():
     TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # 🧱 Хендлери
+   # Хендлери
     conv = ConversationHandler(
         entry_points=[CommandHandler("newtask", new_task)],
         states={
@@ -136,11 +136,12 @@ async def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv)
 
-    # ⏰ Планувальник
+    # Планувальник
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=40, args=[app.bot])
+    scheduler.add_job(send_reminders, trigger='cron', hour=23, minute=50, args=[app.bot])
     scheduler.start()
 
+    # ⬇️ ЦЕ ВСЕРЕДИНІ main()
     print("🤖 Бот запущено!")
     await app.run_polling()
 
