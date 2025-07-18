@@ -127,7 +127,9 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         threads = load_threads()
-        thread_data = next((t for t in threads if t["id"] == thread_id), None)
+
+        # Виправлення: порівнюємо через int()
+        thread_data = next((t for t in threads if int(t["id"]) == thread_id), None)
 
         if thread_data:
             new_name = thread_data["name"].replace("🔴", "🟢", 1)
@@ -136,11 +138,14 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_thread_id=thread_id,
                 name=new_name
             )
+        else:
+            print(f"[Not Found] Thread ID {thread_id} not found in threads.json")
+
     except Exception as e:
         print(f"[Edit Error] {e}")
 
     try:
-        threads = [t for t in threads if t["id"] != thread_id]
+        threads = [t for t in threads if int(t["id"]) != thread_id]
         save_threads(threads)
     except Exception as e:
         print(f"[Remove Error] {e}")
@@ -149,6 +154,7 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✅ Задачу завершено!\nПосилання: {result_link}"
     )
     return ConversationHandler.END
+
 
 async def send_reminders(bot):
     chat_id = -1001234567890  # Замінити на свій чат ID
