@@ -159,6 +159,7 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return ConversationHandler.END
 
+
 async def send_reminders(bot):
     chat_id = -1001234567890  # Замінити на свій чат ID
     threads = load_threads()
