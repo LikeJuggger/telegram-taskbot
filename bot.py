@@ -106,9 +106,12 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     # Зберігаємо актуальну ID гілки
-    threads = load_threads()
-    threads.append(topic.message_thread_id)
-    save_threads(threads)
+threads = load_threads()
+threads.append({
+    "id": topic.message_thread_id,
+    м"name": f"🔴 {data['name']} – {data['assignee']}"
+})
+save_threads(threads)
 
     # Відправляємо самарі в ту гілку
     msg = await context.bot.send_message(
@@ -159,11 +162,6 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Перейменовуємо тему з 🔴 → 🟢
     try:
-        topic = await context.bot.get_forum_topic(
-            chat_id=chat_id,
-            message_thread_id=thread_id
-        )
-        new_name = topic.name.replace("🔴", "🟢", 1)
         await context.bot.edit_forum_topic(
             chat_id=chat_id,
             message_thread_id=thread_id,
