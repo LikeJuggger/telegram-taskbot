@@ -132,12 +132,20 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         thread_data = next((t for t in threads if int(t["id"]) == thread_id), None)
 
         if thread_data:
-            new_name = f"🔵 {thread_data['base_name']}"
-            await context.bot.edit_forum_topic(
-                chat_id=chat_id,
-                message_thread_id=thread_id,
-                name=new_name
-            )
+    new_name = f"🟢 {thread_data['base_name']}"
+    
+    print("🧪 THREAD ID:", thread_id)
+    print("🧪 NEW NAME:", new_name)
+
+    try:
+        response = await context.bot.edit_forum_topic(
+            chat_id=chat_id,
+            message_thread_id=thread_id,
+            name=new_name
+        )
+        print("🧪 RESPONSE:", response)
+    except Exception as e:
+        print("❌ Edit failed:", e)
     except Exception as e:
         print(f"[Edit Error] {e}")
 
