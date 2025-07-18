@@ -131,7 +131,7 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         threads = load_threads()
         thread_data = next((t for t in threads if int(t["id"]) == thread_id), None)
 
-        if thread_data:
+if thread_data:
     new_name = f"🟢 {thread_data['base_name']}"
     
     print("🧪 THREAD ID:", thread_id)
