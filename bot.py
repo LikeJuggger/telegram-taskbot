@@ -76,15 +76,17 @@ async def get_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"*Дедлайн:* {data['deadline']}"
     )
 
+    base_name = f"{data['name']} – {data['assignee']}"
+
     topic = await context.bot.create_forum_topic(
         chat_id=update.effective_chat.id,
-        name=f"🔴 {data['name']} – {data['assignee']}"
+        name=f"🔴 {base_name}"
     )
 
     threads = load_threads()
     threads.append({
         "id": topic.message_thread_id,
-        "name": f"🔴 {data['name']} – {data['assignee']}"
+        "base_name": base_name
     })
     save_threads(threads)
 
@@ -127,20 +129,15 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         threads = load_threads()
-
-        # Виправлення: порівнюємо через int()
         thread_data = next((t for t in threads if int(t["id"]) == thread_id), None)
 
         if thread_data:
-            new_name = thread_data["name"].replace("🔴", "🟢", 1)
+            new_name = f"🔵 {thread_data['base_name']}"
             await context.bot.edit_forum_topic(
                 chat_id=chat_id,
                 message_thread_id=thread_id,
                 name=new_name
             )
-        else:
-            print(f"[Not Found] Thread ID {thread_id} not found in threads.json")
-
     except Exception as e:
         print(f"[Edit Error] {e}")
 
@@ -154,7 +151,6 @@ async def done_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✅ Задачу завершено!\nПосилання: {result_link}"
     )
     return ConversationHandler.END
-
 
 async def send_reminders(bot):
     chat_id = -1001234567890  # Замінити на свій чат ID
