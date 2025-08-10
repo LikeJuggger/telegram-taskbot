@@ -385,9 +385,18 @@ application.add_handler(MessageHandler(filters.Regex("^🛑 Вимкнути н�
 application.add_handler(MessageHandler(filters.Regex("^🛑 "), remove_reminder))
 application.add_handler(MessageHandler(filters.Regex("^[^/].*"), lambda u, c: u.message.reply_text("Оберіть дію з клавіатури або /start", reply_markup=MAIN_KB)))
 
-schedule_all(scheduler, application)
-scheduler.start()
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+scheduler = AsyncIOScheduler(timezone=TZ)
+
+async def _post_init(app):
+    # Після того, як PTB підняв свій event loop:
+    schedule_all(scheduler, app)
+    scheduler.start()
+
+application.post_init(_post_init)
 
 if __name__ == "__main__":
     print("🤖 Бот запущено!")
     application.run_polling()
+
